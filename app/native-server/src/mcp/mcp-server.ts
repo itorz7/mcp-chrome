@@ -4,10 +4,7 @@ import { setupTools } from './register-tools';
 export let mcpServer: Server | null = null;
 
 export const getMcpServer = () => {
-  if (mcpServer) {
-    return mcpServer;
-  }
-  mcpServer = new Server(
+  const server = new Server(
     {
       name: 'ChromeMcpServer',
       version: '1.0.0',
@@ -19,6 +16,7 @@ export const getMcpServer = () => {
     },
   );
 
-  setupTools(mcpServer);
-  return mcpServer;
+  setupTools(server);
+  mcpServer = server;
+  return server;
 };
