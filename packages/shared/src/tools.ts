@@ -1182,14 +1182,44 @@ export const TOOL_SCHEMAS: Tool[] = [
   },
   {
     name: TOOL_NAMES.BROWSER.HANDLE_DIALOG,
-    description: 'Handle JavaScript dialogs (alert/confirm/prompt) via CDP',
+    description:
+      'Handle JavaScript dialogs (alert/confirm/prompt) via CDP.\n\n' +
+      'Modes:\n' +
+      '- action="arm": Register an auto-responder BEFORE triggering code that may open a dialog ' +
+      '(e.g. a confirm() inside a click handler). Required when the dialog is opened synchronously ' +
+      'from chrome_javascript or chrome_click_element — those calls would otherwise block waiting ' +
+      'for the dialog while no tool can reach it. The handler fires on Page.javascriptDialogOpening ' +
+      'and auto-expires after ttlMs.\n' +
+      '- action="disarm": Remove a previously armed handler for the tab.\n' +
+      '- action="accept" / "dismiss": Respond to a dialog that is already open right now.',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', description: 'accept | dismiss' },
+        action: {
+          type: 'string',
+          enum: ['accept', 'dismiss', 'arm', 'disarm'],
+          description:
+            'accept | dismiss: reactive — only works if a dialog is currently open. ' +
+            'arm: proactive — register an auto-responder BEFORE the action that opens the dialog. ' +
+            'disarm: remove the armed handler.',
+        },
+        response: {
+          type: 'string',
+          enum: ['accept', 'dismiss'],
+          description: 'When action="arm", how to respond to dialogs that open (default: accept).',
+        },
         promptText: {
           type: 'string',
-          description: 'Optional prompt text when accepting a prompt',
+          description: 'Optional text for prompt() dialogs when accepting.',
+        },
+        ttlMs: {
+          type: 'number',
+          description:
+            'When action="arm", auto-disarm after this many ms (default: 10000, max: 120000).',
+        },
+        tabId: {
+          type: 'number',
+          description: 'Target tab ID. Defaults to the active tab.',
         },
       },
       required: ['action'],
