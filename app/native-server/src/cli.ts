@@ -26,8 +26,17 @@ program
   .option('-s, --system', 'Use system-level installation (requires administrator/sudo privileges)')
   .option('-b, --browser <browser>', 'Register for specific browser (chrome, chromium, or all)')
   .option('-d, --detect', 'Auto-detect installed browsers')
+  .option(
+    '-e, --extension-id <id>',
+    'Chrome extension ID(s) to allow (comma-separated for multiple). Overrides the built-in ID.',
+  )
   .action(async (options) => {
     try {
+      // Propagate extension ID override to manifest builder via env var
+      if (options.extensionId) {
+        process.env.CHROME_MCP_EXTENSION_ID = options.extensionId;
+      }
+
       // Write Node.js path for run_host scripts
       writeNodePathFile(__dirname);
 

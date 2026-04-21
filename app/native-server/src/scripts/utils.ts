@@ -234,17 +234,38 @@ async function ensureWindowsFilePermissions(packageDistDir: string): Promise<voi
 }
 
 /**
+ * Resolve the Chrome extension ID for the native messaging manifest.
+ * Priority:
+ *   1. CHROME_MCP_EXTENSION_ID env var (set by install script or user)
+ *   2. Hardcoded EXTENSION_ID in constant.ts (release build)
+ *
+ * When building from source and load-unpacked, Chrome generates a per-path
+ * extension ID. Pass it via env so the manifest's allowed_origins matches.
+ */
+export function resolveExtensionIds(): string[] {
+  const fromEnv = process.env.CHROME_MCP_EXTENSION_ID?.trim();
+  if (fromEnv) {
+    return fromEnv
+      .split(/[,\s]+/)
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+  return [EXTENSION_ID];
+}
+
+/**
  * Create Native Messaging host manifest content
  */
 export async function createManifestContent(): Promise<any> {
   const mainPath = await getMainPath();
+  const ids = resolveExtensionIds();
 
   return {
     name: HOST_NAME,
     description: DESCRIPTION,
     path: mainPath, // Node.js可执行文件路径
     type: 'stdio',
-    allowed_origins: [`chrome-extension://${EXTENSION_ID}/`],
+    allowed_origins: ids.map((id) => `chrome-extension://${id}/`),
   };
 }
 

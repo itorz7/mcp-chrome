@@ -45,102 +45,85 @@ Chrome MCP Server is a Chrome extension-based **Model Context Protocol (MCP) ser
 | **Startup Speed**       | ❌ Requires launching browser process                                                                                     | ✅ Only needs to activate extension                                                                    |
 | **Response Speed**      | 50-200ms inter-process communication                                                                                      | ✅ Faster                                                                                              |
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Build from Source)
+
+Self-build install: no `npm install -g`, no release zip — you build the extension and native bridge yourself, then register them together.
 
 ### Prerequisites
 
-- Node.js >= 20.0.0 and pnpm/npm
-- Chrome/Chromium browser
+- Node.js >= 20 (tested on v22)
+- `pnpm` (`npm install -g pnpm` if you don't have it)
+- Chrome / Chromium
 
-### Installation Steps
+> Rust toolchain is **not** required — the installer reuses the prebuilt WASM module shipped in `releases/`.
 
-1. **Download the latest Chrome extension from GitHub**
-
-Download link: https://github.com/hangwin/mcp-chrome/releases
-
-2. **Install mcp-chrome-bridge globally**
-
-npm
+### 1. Clone and build
 
 ```bash
-npm install -g mcp-chrome-bridge
+git clone https://github.com/itorz7/mcp-chrome.git
+cd mcp-chrome
+./scripts/install.sh build
 ```
 
-pnpm
+This installs workspace dependencies, copies the prebuilt WASM, then builds the shared package, the native bridge, and the Chrome extension. When it finishes you'll see two paths:
+
+- `app/chrome-extension/.output/chrome-mv3` — the unpacked extension
+- `app/native-server/dist` — the native messaging bridge
+
+### 2. Load the unpacked extension in Chrome
+
+1. Open `chrome://extensions`
+2. Toggle **Developer mode** on
+3. Click **Load unpacked** and select `app/chrome-extension/.output/chrome-mv3`
+4. Copy the **extension ID** Chrome assigns (shown right under the extension name)
+
+### 3. Register the native host with your extension ID
 
 ```bash
-# Method 1: Enable scripts globally (recommended)
-pnpm config set enable-pre-post-scripts true
-pnpm install -g mcp-chrome-bridge
-
-# Method 2: Manual registration (if postinstall doesn't run)
-pnpm install -g mcp-chrome-bridge
-mcp-chrome-bridge register
+./scripts/install.sh register <YOUR_EXTENSION_ID>
 ```
 
-> Note: pnpm v7+ disables postinstall scripts by default for security. The `enable-pre-post-scripts` setting controls whether pre/post install scripts run. If automatic registration fails, use the manual registration command above.
+> Chrome generates a fresh extension ID every time the unpacked folder moves. Each time you move the repo or re-load the extension you'll need to re-run `register` with the new ID. The popup shows the current ID and the exact command to run — just copy.
 
-3. **Load Chrome Extension**
-   - Open Chrome and go to `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked" and select `your/dowloaded/extension/folder`
-   - Click the extension icon to open the plugin, then click connect to see the MCP configuration
-     <img width="475" alt="Screenshot 2025-06-09 15 52 06" src="https://github.com/user-attachments/assets/241e57b8-c55f-41a4-9188-0367293dc5bc" />
+### 4. Fully quit Chrome and reopen
 
-### Usage with MCP Protocol Clients
+Chrome caches native messaging manifests when it launches, so after registering you **must** `Cmd+Q` / quit all Chrome windows and relaunch. Then open the extension popup and click **Connect**.
 
-#### Using Streamable HTTP Connection (👍🏻 Recommended)
+### 5. Point your MCP client at the bridge
 
-Add the following configuration to your MCP client configuration (using CherryStudio as an example):
-
-> Streamable HTTP connection method is recommended
+The bridge exposes Streamable HTTP on port 12306:
 
 ```json
 {
   "mcpServers": {
-    "chrome-mcp-server": {
-      "type": "streamableHttp",
+    "chrome-mcp": {
+      "type": "http",
       "url": "http://127.0.0.1:12306/mcp"
     }
   }
 }
 ```
 
-#### Using STDIO Connection (Alternative)
+**Claude Code:**
 
-If your client only supports stdio connection method, please use the following approach:
-
-1. First, check the installation location of the npm package you just installed
-
-```sh
-# npm check method
-npm list -g mcp-chrome-bridge
-# pnpm check method
-pnpm list -g mcp-chrome-bridge
+```bash
+claude mcp add --scope user --transport http chrome-mcp http://127.0.0.1:12306/mcp
 ```
 
-Assuming the command above outputs the path: /Users/xxx/Library/pnpm/global/5
-Then your final path would be: /Users/xxx/Library/pnpm/global/5/node_modules/mcp-chrome-bridge/dist/mcp/mcp-server-stdio.js
+### Re-running after source changes
 
-2. Replace the configuration below with the final path you just obtained
-
-```json
-{
-  "mcpServers": {
-    "chrome-mcp-stdio": {
-      "command": "npx",
-      "args": [
-        "node",
-        "/Users/xxx/Library/pnpm/global/5/node_modules/mcp-chrome-bridge/dist/mcp/mcp-server-stdio.js"
-      ]
-    }
-  }
-}
+```bash
+./scripts/install.sh build                 # rebuild bridge + extension
+./scripts/install.sh register <EXT_ID>     # re-register (only if ID changed)
+./scripts/install.sh unregister            # wipe the native host manifest
 ```
 
-eg：config in augment:
+### Troubleshooting
 
-<img width="494" alt="截屏2025-06-22 22 11 25" src="https://github.com/user-attachments/assets/48eefc0c-a257-4d3b-8bbe-d7ff716de2bf" />
+- **"Native host has exited" in service worker console** — the `allowed_origins` in the manifest does not match the extension ID. Re-run `register` with the current ID from `chrome://extensions`.
+- **"Connected, Service Not Started"** — the popup connected to the native host but the HTTP server hasn't started. Click **Disconnect** then **Connect** again, or fully quit Chrome first.
+- **Manifest not picked up after `register`** — Chrome caches manifests on launch. Quit Chrome completely (`Cmd+Q` on macOS) and reopen.
+- **macOS and project lives under `~/Desktop`** — TCC can block Chrome from spawning the wrapper script. Move the repo out of `~/Desktop` (e.g. to `~/mcp-chrome`) and re-run `register`.
 
 ## 🛠️ Available Tools
 

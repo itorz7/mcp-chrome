@@ -44,6 +44,26 @@
                 <pre class="mcp-config-json">{{ mcpConfigJson }}</pre>
               </div>
             </div>
+            <!-- Self-build install helper: show extension ID + register cmd -->
+            <div v-if="extensionId" class="ext-id-section">
+              <div class="ext-id-header">
+                <p class="ext-id-label">Extension ID (for self-built installs)</p>
+              </div>
+              <div class="ext-id-row">
+                <code class="ext-id-code">{{ extensionId }}</code>
+                <button class="ext-id-copy" @click="copyExtensionId">{{ copyIdText }}</button>
+              </div>
+              <p class="ext-id-hint">Run this in a terminal from the repo root after build:</p>
+              <div class="ext-id-row">
+                <code class="ext-id-code ext-id-cmd">{{ registerCommand }}</code>
+                <button class="ext-id-copy" @click="copyRegisterCommand">{{ copyCmdText }}</button>
+              </div>
+              <p class="ext-id-hint">
+                Then fully quit Chrome (Cmd+Q / close all windows) and re-open before clicking
+                Connect.
+              </p>
+            </div>
+
             <div class="port-section">
               <label for="port" class="port-label">{{ getMessage('connectionPortLabel') }}</label>
               <input
@@ -535,7 +555,7 @@ const mcpConfigJson = computed(() => {
   const port = serverStatus.value.port || nativeServerPort.value;
   const config = {
     mcpServers: {
-      'streamable-mcp-server': {
+      'chrome-mcp': {
         type: 'http',
         url: `http://127.0.0.1:${port}/mcp`,
       },
@@ -543,6 +563,36 @@ const mcpConfigJson = computed(() => {
   };
   return JSON.stringify(config, null, 2);
 });
+
+// Extension ID for self-built (unpacked) installs. Users must pass this to
+// `mcp-chrome-bridge register --extension-id <id>` so Chrome's native
+// messaging manifest allows this specific extension.
+const extensionId = computed(() => chrome.runtime?.id || '');
+const registerCommand = computed(
+  () => `mcp-chrome-bridge register --extension-id ${extensionId.value}`,
+);
+const copyIdText = ref('Copy');
+const copyCmdText = ref('Copy');
+
+const copyExtensionId = async () => {
+  try {
+    await navigator.clipboard.writeText(extensionId.value);
+    copyIdText.value = 'Copied';
+    setTimeout(() => (copyIdText.value = 'Copy'), 1500);
+  } catch (e) {
+    console.error('copy failed', e);
+  }
+};
+
+const copyRegisterCommand = async () => {
+  try {
+    await navigator.clipboard.writeText(registerCommand.value);
+    copyCmdText.value = 'Copied';
+    setTimeout(() => (copyCmdText.value = 'Copy'), 1500);
+  } catch (e) {
+    console.error('copy failed', e);
+  }
+};
 
 const currentModel = ref<ModelPreset | null>(null);
 const isModelSwitching = ref(false);
@@ -2055,6 +2105,66 @@ onUnmounted(() => {
   margin: 0;
   white-space: pre;
   overflow-x: auto;
+}
+
+.ext-id-section {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ext-id-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+.ext-id-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ext-id-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ext-id-code {
+  flex: 1;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #0f172a;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.ext-id-cmd {
+  font-size: 10px;
+}
+.ext-id-copy {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+}
+.ext-id-copy:hover {
+  background: #e2e8f0;
+}
+.ext-id-hint {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #64748b;
 }
 
 .port-section {
